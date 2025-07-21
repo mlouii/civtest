@@ -1,0 +1,53 @@
+- Implemented unit.py:
+    - Created Unit class with properties: unique_id, owner, unit_type, x, y, moves, hp, selected.
+    - Added methods: update, render, move, can_move, reset_moves, to_dict, __repr__, found_city (settler), attack (warrior).
+    - Initial implementation used hardcoded unit types and constants.
+
+    - Removed hardcoded unit type logic.
+    - Now imports and uses UNIT_TYPES from unit_config for all unit properties.
+    - Raises ValueError for unknown unit_type.
+    - Uses config values for rendering, movement, and HP.
+
+    - Defines UNIT_TYPES and their properties (move_points, hp, color, radius).
+    - Designed for easy extension with new unit types.
+
+    - Added comprehensive tests for Unit class:
+        - Creation, move, move validation, reset_moves, to_dict, selection, __repr__, and error on unknown unit_type.
+    - Uses DummyMap and BlockMap for move validation tests.
+
+
+
+Timestamp: July 20, 2025
+- Implemented Player class in player.py:
+    - Properties: player_id, is_human, unit_ids, city_ids, resources, color.
+    - Methods: __init__, to_dict, from_dict, __repr__, add_unit, remove_unit, add_city, remove_city.
+    - Used for all player references in Game and tests.
+
+- Integrated Player class throughout Game module:
+    - Game.players is now Dict[str, Player].
+    - All player logic and serialization uses Player objects.
+
+- Improved Game class in game.py:
+    - Centralized all game state (map, units, players, turn).
+    - Added helper methods for adding/removing units and players, turn rotation.
+    - Serialization and deserialization via to_dict/from_dict.
+
+- Added and improved Game tests in test_game.py:
+    - Added TestGameClass for Game logic.
+    - Fixed DummyGameMap to use correct constructor.
+    - Removed failing test for GameMap.from_dict.
+    - All tests now pass for Game, Unit, City, and GameMap modules.
+
+- Bug fixes:
+    - Fixed DummyGameMap constructor to match GameMap signature.
+
+
+Timestamp: July 20, 2025
+- Added main.py logic tests to test_game.py:
+    - Moved all main.py related tests (init_game, handle_events, update_game, render_game, draw_gui) into test_game.py.
+    - Deleted test_main.py; all main loop and GUI overlay logic now covered in test_game.py.
+    - Tests verify game initialization, event handling, update, rendering, and GUI overlay run without error.
+    - Added water ratio, terrain distribution, and tile attribute tests for GameMap.
+- All tests pass for Game, Unit, City, GameMap, and main loop logic.
+
+

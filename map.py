@@ -1,12 +1,17 @@
 # map.py
+# This module generates a tile-based map similar to Civilization games.
+# It creates a grid of tiles, assigns terrain types, and clusters biomes.
 
 import random
+import pygame
+from typing import List, Optional, Tuple, Any
 from config import (
     MAP_WIDTH, MAP_HEIGHT, TILE_SIZE, BASE_WATER_RATIO,
     LAND_SMOOTH_PASSES, FOREST_RATIO, HILL_RATIO, MOUNTAIN_RATIO, PLAINS_RATIO, SEED
 )
 
-TERRAIN_TYPES = {
+# Terrain definitions: color and yields for each type
+TERRAIN_TYPES: dict[str, dict[str, Any]] = {
     "grassland": {"color": (50, 200, 50), "food": 2, "prod": 1},
     "plains":    {"color": (200, 200, 100), "food": 1, "prod": 2},
     "forest":    {"color": (34, 139, 34),   "food": 1, "prod": 2},
@@ -16,22 +21,25 @@ TERRAIN_TYPES = {
 }
 
 class Tile:
-    def __init__(self, x, y, terrain):
-        self.x = x
-        self.y = y
-        self.terrain = terrain
-        self.city = None
-        self.unit = None
+    # Represents a single tile on the map
+    def __init__(self, x: int, y: int, terrain: str) -> None:
+        self.x: int = x
+        self.y: int = y
+        self.terrain: str = terrain
+        self.city: Optional[Any] = None
+        self.unit: Optional[Any] = None
 
     @property
-    def color(self):
+    def color(self) -> Tuple[int, int, int]:
+        # Returns the color for rendering based on terrain type
         return TERRAIN_TYPES[self.terrain]["color"]
 
-    def update(self, game_state):
+    def update(self, game_state: Any) -> None:
+        # Placeholder for future tile updates (e.g., city/unit logic)
         pass
 
-    def render(self, surface):
-        import pygame
+    def render(self, surface: Any) -> None:
+        # Draws the tile on the given surface using pygame
         pygame.draw.rect(
             surface,
             self.color,
@@ -45,19 +53,20 @@ class Tile:
         )
 
 class GameMap:
+    # Generates and manages the entire map grid
     def __init__(
-        self, width, height,
-        override_water=None, override_forest=None, override_hill=None,
-        override_mountain=None, override_plains=None, override_smoothing=None
-    ):
-        from config import (
-            BASE_WATER_RATIO, FOREST_RATIO, HILL_RATIO, MOUNTAIN_RATIO, PLAINS_RATIO, LAND_SMOOTH_PASSES, SEED
-        )
+        self, width: int, height: int,
+        override_water: Optional[float] = None, override_forest: Optional[float] = None,
+        override_hill: Optional[float] = None, override_mountain: Optional[float] = None,
+        override_plains: Optional[float] = None, override_smoothing: Optional[int] = None
+    ) -> None:
+        # Set random seed for reproducibility
         if SEED is not None:
             random.seed(SEED)
-        self.width = width
-        self.height = height
+        self.width: int = width
+        self.height: int = height
 
+        # Use overrides or config values for terrain ratios and smoothing
         base_water = override_water if override_water is not None else BASE_WATER_RATIO
         forest = override_forest if override_forest is not None else FOREST_RATIO
         hill = override_hill if override_hill is not None else HILL_RATIO
@@ -65,14 +74,14 @@ class GameMap:
         plains = override_plains if override_plains is not None else PLAINS_RATIO
         smoothing = override_smoothing if override_smoothing is not None else LAND_SMOOTH_PASSES
 
-        # 1. Initial random land/water
-        grid = [[0 if random.random() > base_water else 1 for _ in range(width)] for _ in range(height)]
+        # 1. Initial random land/water assignment
+        grid: List[List[int]] = [[0 if random.random() > base_water else 1 for _ in range(width)] for _ in range(height)]
 
-        # 2. Smooth with cellular automata
+        # 2. Smooth land/water using cellular automata
         for _ in range(int(smoothing)):
             grid = self._smooth(grid)
 
-        # 3. Guarantee minimum water
+        # 3. Ensure a minimum amount of water tiles
         total_water = sum(grid[y][x] for y in range(height) for x in range(width))
         min_water = int(base_water * width * height * 0.8)
         tries = 0
@@ -84,8 +93,8 @@ class GameMap:
                 total_water += 1
             tries += 1
 
-        # 4. Create tile objects
-        self.tiles = []
+        # 4. Create Tile objects for each grid cell
+        self.tiles: List[List[Tile]] = []
         for y in range(height):
             row = []
             for x in range(width):
@@ -93,13 +102,14 @@ class GameMap:
                 row.append(Tile(x, y, terrain))
             self.tiles.append(row)
 
-        # 5. Add land biomes as clusters, only on land
+        # 5. Add land biomes (forest, hill, mountain, plains) as clusters on land tiles
         self._add_land_biomes("forest", forest)
         self._add_land_biomes("hill", hill)
         self._add_land_biomes("mountain", mountain)
         self._add_land_biomes("plains", plains)
 
-    def _smooth(self, grid):
+    def _smooth(self, grid: List[List[int]]) -> List[List[int]]:
+        # Applies cellular automata smoothing to the land/water grid
         new_grid = [[0 for _ in range(self.width)] for _ in range(self.height)]
         for y in range(self.height):
             for x in range(self.width):
@@ -110,13 +120,15 @@ class GameMap:
                         if 0 <= nx < self.width and 0 <= ny < self.height:
                             if grid[ny][nx] == 1:
                                 water_neighbors += 1
+                # If more than 4 neighbors are water, make this tile water
                 if water_neighbors > 4:
                     new_grid[y][x] = 1
                 else:
                     new_grid[y][x] = 0
         return new_grid
 
-    def _add_land_biomes(self, terrain, ratio):
+    def _add_land_biomes(self, terrain: str, ratio: float) -> None:
+        # Adds clusters of a specific terrain type to grassland tiles
         total_land = sum(1 for row in self.tiles for tile in row if tile.terrain == "grassland")
         n_tiles = int(ratio * total_land)
         tries = 0
@@ -140,25 +152,41 @@ class GameMap:
                         if n_tiles <= 0:
                             break
 
-    def update(self, game_state):
+    def update(self, game_state: Any) -> None:
+        # Updates all tiles (placeholder for future logic)
         for row in self.tiles:
             for tile in row:
                 tile.update(game_state)
 
-    def render(self, surface):
+    def render(self, surface: Any, game: Optional[Any] = None) -> None:
+        # Renders all tiles to the given surface
         for row in self.tiles:
             for tile in row:
                 tile.render(surface)
+        # Render all units if a Game object is provided
+        if game is not None and hasattr(game, "units"):
+            for unit in game.units:
+                unit.render(surface)
 
-    def get_tile(self, x, y):
+    def get_tile(self, x: int, y: int) -> Optional[Tile]:
+        # Returns the tile at (x, y) or None if out of bounds
         if 0 <= x < self.width and 0 <= y < self.height:
             return self.tiles[y][x]
         return None
 
-    def neighbors(self, x, y):
+    def neighbors(self, x: int, y: int) -> List[Tile]:
+        # Returns the cardinal (N, S, E, W) neighbors of a tile
         dirs = [(-1,0), (1,0), (0,-1), (0,1)]
         return [self.get_tile(x+dx, y+dy)
                 for dx,dy in dirs if self.get_tile(x+dx, y+dy)]
 
-    def __repr__(self):
+    def is_tile_passable(self, x: int, y: int) -> bool:
+        tile = self.get_tile(x, y)
+        if tile is None:
+            return False
+        # Example: only water is impassable
+        return tile.terrain != "water"
+
+    def __repr__(self) -> str:
+        # String representation for debugging
         return f"<GameMap {self.width}x{self.height}>"

@@ -15,7 +15,8 @@ from game import Game
 from gui_config import (
     COLOR_BG, COLOR_TILE_HIGHLIGHT, COLOR_PATH_LINE, COLOR_PATH_ARROW, COLOR_INVALID_MOVE,
     COLOR_PANEL_BG, COLOR_PANEL_BORDER, COLOR_PLAYER_TEXT, COLOR_UNIT_TEXT, COLOR_UNIT_TEXT_ALT,
-    COLOR_STATUS_TEXT, COLOR_BUTTON_BG, COLOR_BUTTON_BORDER, COLOR_BUTTON_TEXT, COLOR_INSTRUCTIONS
+    COLOR_STATUS_TEXT, COLOR_BUTTON_BG, COLOR_BUTTON_BORDER, COLOR_BUTTON_TEXT, COLOR_INSTRUCTIONS,
+    SIDEBAR_WIDTH, BUTTON_END_TURN, BUTTON_FOUND_CITY, DEFAULT_STATUS_MSGS
 )
 from movement import compute_reachable
 from config import MAP_WIDTH, MAP_HEIGHT, TILE_SIZE
@@ -89,14 +90,14 @@ def render_game(
 ) -> None:
     screen.fill(COLOR_BG)
     game.map.render(screen, game)
-    render_cities(screen, game, state)
     render_valid_moves(screen, state)
     render_path(screen, game, state)
     render_invalid_move(screen, game, state)
+    render_cities(screen, game, state)  # Render cities last, above everything
     draw_gui(screen, game, state.status_msg)
 
 def draw_sidebar_panel(surface):
-    panel_width = TILE_SIZE * 12
+    panel_width = SIDEBAR_WIDTH
     panel_height = surface.get_height()
     panel_x = TILE_SIZE * MAP_WIDTH
     panel_y = 0
@@ -108,9 +109,10 @@ def draw_sidebar_panel(surface):
 def draw_player_info(surface, game, font, x, y):
     player_str = f"Player: {game.current_player}"
     turn_str = f"Turn: {game.turn}"
-    surface.blit(font.render(player_str, True, COLOR_PLAYER_TEXT), (x, y))
+    color = game.players[game.current_player].color if game.current_player in game.players else (0,0,0)
+    surface.blit(font.render(player_str, True, color), (x, y))
     y += 30
-    surface.blit(font.render(turn_str, True, COLOR_PLAYER_TEXT), (x, y))
+    surface.blit(font.render(turn_str, True, color), (x, y))
     y += 40
     return y
 

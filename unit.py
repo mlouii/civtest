@@ -12,6 +12,7 @@ Unit class for Civ MVP project.
 """
 
 from unit_config import UNIT_TYPES
+from gui_config import DEFAULT_STATUS_MSGS
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -130,10 +131,28 @@ class Unit:
                 f"hp={self.hp} moves={self.moves} selected={self.selected}>")
 
     # Settler ability placeholder
-    def found_city(self, game_state):
-        if self.unit_type == "settler":
-            # Placeholder: implement city founding logic
-            pass
+    def found_city(self, game, state):
+        if self.unit_type != "settler" or self.owner != game.current_player:
+            state.status_msg = DEFAULT_STATUS_MSGS["invalid_move"]
+            return False
+        tx, ty = self.x, self.y
+        tile_occupied = any(c.x == tx and c.y == ty for c in game.cities)
+        if tile_occupied or not game.map.is_tile_passable(tx, ty):
+            state.status_msg = DEFAULT_STATUS_MSGS["invalid_move"]
+            return False
+        from city import City
+        new_city = City(owner_id=game.current_player, x=tx, y=ty)
+        game.add_city(new_city)
+        game.remove_unit(self)
+        if game.current_player in game.players:
+            player = game.players[game.current_player]
+            if hasattr(player, "add_city"):
+                player.add_city(new_city)
+        state.selected_unit = None
+        state.status_msg = DEFAULT_STATUS_MSGS["found_city"]
+        state.valid_moves = []
+        state.path_map = {}
+        return True
 
     # Warrior combat placeholder
     def attack(self, target_unit):

@@ -6,6 +6,8 @@ This module contains GUI color and style constants.
 - Centralizes GUI appearance for easy customization
 All variables here are focused on visual style and theming.
 """
+from config import TILE_SIZE
+
 # gui_config.py
 # Centralized color definitions for Civ MVP GUI
 
@@ -24,3 +26,20 @@ COLOR_BUTTON_BG = (180, 180, 220)
 COLOR_BUTTON_BORDER = (80, 80, 100)
 COLOR_BUTTON_TEXT = (30, 30, 60)
 COLOR_INSTRUCTIONS = (30, 30, 60)
+
+# UI and button constants
+SIDEBAR_WIDTH = TILE_SIZE * 12
+BUTTON_END_TURN = "end_turn"
+BUTTON_FOUND_CITY = "found_city"
+DEFAULT_PLAYER_ID = "P1"
+DEFAULT_STATUS_MSGS = {
+    "unit_deselected": "Unit deselected.",
+    "city_deselected": "City deselected.",
+    "turn_ended": "Turn ended.",
+    "found_city": "Found City button clicked (implement logic)",
+    "selected_city": "Selected city {name} at ({x},{y})",
+    "selected_unit": "Selected {unit_type} at ({x},{y})",
+    "invalid_move": "Invalid move: tile not allowed.",
+    "invalid_move_points": "Invalid move: not enough movement points.",
+    "invalid_path": "Invalid move: no path found."
+}

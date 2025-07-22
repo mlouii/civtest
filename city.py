@@ -9,6 +9,12 @@ All functions here are focused on city logic and visualization.
 """
 from typing import Dict, Any, Type, Optional
 import uuid
+import random
+
+CITY_NAME_POOL = [
+    "New York", "Los Angeles", "Chicago", "Houston", "Phoenix",
+    "Philadelphia", "San Antonio", "San Diego", "Dallas", "San Jose"
+]
 
 class City:
     def render(self, surface: Any, owner_color: Any = (0, 0, 0), selected: bool = False, font: Any = None) -> None:
@@ -43,7 +49,10 @@ class City:
         self.x: int = x
         self.y: int = y
         self.population: int = population
-        self.name: str = name if name is not None else f"City {self.city_id[-5:]}"
+        if name is not None:
+            self.name: str = name
+        else:
+            self.name: str = random.choice(CITY_NAME_POOL)
 
     def to_dict(self) -> Dict[str, Any]:
         return {

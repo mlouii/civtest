@@ -58,9 +58,11 @@ class Player:
         if unit_id in self.unit_ids:
             self.unit_ids.remove(unit_id)
 
-    def add_city(self, city_id: int) -> None:
-        if city_id not in self.city_ids:
-            self.city_ids.append(city_id)
+    def add_city(self, city) -> None:
+        if not hasattr(self, "city_ids"):
+            self.city_ids = []
+        self.city_ids.append(city.city_id)
+        # Optionally, add more city info to player
 
     def remove_city(self, city_id: int) -> None:
         if city_id in self.city_ids:

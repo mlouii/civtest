@@ -10,7 +10,6 @@ All functions here are focused on orchestrating gameplay, user interaction, and 
 """
 from typing import Tuple, List, Dict, Optional
 from dataclasses import dataclass, field
-
 import pygame
 from collections import deque
 from game import Game
@@ -21,10 +20,13 @@ from movement import compute_reachable
 from gui_config import (
     COLOR_BG, COLOR_TILE_HIGHLIGHT, COLOR_PATH_LINE, COLOR_PATH_ARROW, COLOR_INVALID_MOVE,
     COLOR_PANEL_BG, COLOR_PANEL_BORDER, COLOR_PLAYER_TEXT, COLOR_UNIT_TEXT, COLOR_UNIT_TEXT_ALT,
-    COLOR_STATUS_TEXT, COLOR_BUTTON_BG, COLOR_BUTTON_BORDER, COLOR_BUTTON_TEXT, COLOR_INSTRUCTIONS
+    COLOR_STATUS_TEXT, COLOR_BUTTON_BG, COLOR_BUTTON_BORDER, COLOR_BUTTON_TEXT, COLOR_INSTRUCTIONS,
+    SIDEBAR_WIDTH, BUTTON_END_TURN, BUTTON_FOUND_CITY, DEFAULT_STATUS_MSGS
 )
 from gui import render_game, draw_gui
 from gamestate import GameState
+from unit import Unit
+
 
 
 ## GameState is now imported from gamestate.py
@@ -35,10 +37,37 @@ def update_game(game: Game) -> None:
     game.map.update(game)
 
 
+def find_passable_tile(game_map: GameMap, preferred_coords: List[Tuple[int, int]]) -> Tuple[int, int]:
+    """
+    Returns the first passable tile from preferred_coords, or searches the map for any passable tile.
+    """
+    for x, y in preferred_coords:
+        if game_map.is_tile_passable(x, y):
+            return x, y
+    # Fallback: search the map for any passable tile
+    for y in range(game_map.height):
+        for x in range(game_map.width):
+            if game_map.is_tile_passable(x, y):
+                return x, y
+    # If no passable tile found, default to (0,0)
+    return 0, 0
+
 def init_game() -> Game:
     player1 = Player(player_id="P1")
-    players: Dict[str, Player] = {"P1": player1}
-    return Game(game_map=GameMap(MAP_WIDTH, MAP_HEIGHT), players=players, current_player="P1")
+    player1.color = (30, 30, 60)  # Blue
+    player2 = Player(player_id="P2")
+    player2.color = (200, 30, 30)  # Red
+    players: Dict[str, Player] = {"P1": player1, "P2": player2}
+    game_map = GameMap(MAP_WIDTH, MAP_HEIGHT)
+    # Find passable starting tiles for each player
+    p1_start = find_passable_tile(game_map, [(2, 2)])
+    p2_start = find_passable_tile(game_map, [(MAP_WIDTH-3, MAP_HEIGHT-3)])
+    units = [
+        Unit(unique_id=1, owner="P1", unit_type="settler", x=p1_start[0], y=p1_start[1]),
+        Unit(unique_id=2, owner="P2", unit_type="settler", x=p2_start[0], y=p2_start[1])
+    ]
+    game = Game(game_map=game_map, players=players, units=units, current_player="P1")
+    return game
 
 def handle_quit_event() -> bool:
     return False
@@ -77,23 +106,29 @@ def handle_left_click(game: Game, state: GameState, button_rects: Dict[str, Opti
     return True
 
 def handle_button_click(btn_name: str, game: Game, state: GameState) -> None:
-    if btn_name == "end_turn":
+    if btn_name == BUTTON_END_TURN:
         for unit in game.units:
             if unit.owner == game.current_player:
                 unit.reset_moves()
-        game.next_turn()
         for unit in game.units:
             unit.selected = False
         if hasattr(game, "cities"):
             for city in game.cities:
                 city.selected = False
         state.selected_unit = None
-        state.status_msg = "Turn ended."
         state.valid_moves = []
         state.path_map = {}  # Reset only when turn ends
-    elif btn_name == "found_city":
-        # Placeholder for found city button logic
-        state.status_msg = "Found City button clicked (implement logic)"
+        round_advanced = game.end_turn_for_current_player()
+        if round_advanced:
+            state.status_msg = "All players ended turn. New round started."
+        else:
+            state.status_msg = f"{game.current_player} ended their turn."
+    elif btn_name == BUTTON_FOUND_CITY:
+        unit = state.selected_unit
+        if unit:
+            unit.found_city(game, state)
+        else:
+            state.status_msg = DEFAULT_STATUS_MSGS["invalid_move"]
 
 def handle_city_selection(game: Game, state: GameState, tx: int, ty: int) -> bool:
     if hasattr(game, "cities"):
@@ -138,6 +173,10 @@ def handle_unit_movement(game: Game, state: GameState, tx: int, ty: int) -> None
                     state.selected_unit = None
                     state.valid_moves = []
                     state.path_map = {}
+                    # Auto end turn if all units for current player have moved
+                    round_ended = game.check_and_auto_end_turn()
+                    if round_ended:
+                        state.status_msg = "All units moved. Turn ended automatically."
             else:
                 state.status_msg = "Invalid move: not enough movement points."
         else:
@@ -163,13 +202,16 @@ def handle_keydown_event(event, game: Game, state: GameState) -> None:
         for unit in game.units:
             if unit.owner == game.current_player:
                 unit.reset_moves()
-        game.next_turn()
         for unit in game.units:
             unit.selected = False
         state.selected_unit = None
-        state.status_msg = "Turn ended."
         state.valid_moves = []
         state.path_map = {}  # Reset only when turn ends
+        round_advanced = game.end_turn_for_current_player()
+        if round_advanced:
+            state.status_msg = "All players ended turn. New round started."
+        else:
+            state.status_msg = f"{game.current_player} ended their turn."
 
 def handle_auto_end_turn(game: Game, state: GameState, running: bool) -> None:
     if hasattr(game, 'should_end_turn') and callable(game.should_end_turn):
@@ -203,8 +245,7 @@ def handle_events(game: Game, state: GameState, button_rects: Dict[str, Optional
 def main() -> None:
     pygame.init()
     pygame.font.init()
-    sidebar_width = TILE_SIZE * 12
-    screen_width = TILE_SIZE * MAP_WIDTH + sidebar_width
+    screen_width = TILE_SIZE * MAP_WIDTH + SIDEBAR_WIDTH
     screen_height = TILE_SIZE * MAP_HEIGHT
     screen = pygame.display.set_mode(
         (screen_width, screen_height)

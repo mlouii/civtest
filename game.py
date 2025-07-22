@@ -1,3 +1,4 @@
+
 """
 game.py
 
@@ -16,11 +17,7 @@ from city import City
 import json
 
 class Game:
-    def should_end_turn(self) -> bool:
-        # Returns True if the current player is out of moves
-        if self.current_player and self.current_player in self.players:
-            return self.players[self.current_player].is_out_of_moves(self)
-        return False
+    
     def __init__(self, 
                  game_map: Optional[GameMap] = None, 
                  units: Optional[List[Unit]] = None, 
@@ -30,40 +27,20 @@ class Game:
         self.map: GameMap = game_map if game_map is not None else GameMap()
         self.units: List[Unit] = units if units is not None else []
         self.players: Dict[str, Player] = players if players is not None else {}
-        self.current_player: Optional[str] = current_player
         self.turn: int = turn
         self._next_unit_id: int = 1  # Simple unique ID generator
         # City support
         self.cities: List[City] = []
-        # self.action_history: List[Any] = []
-
-        # --- Initial unit creation logic ---
-        if not self.units and self.players:
-            # Only add if units not provided and players exist
-            first_player_id = list(self.players.keys())[0]
-            first_player = self.players[first_player_id]
-            # Find two valid, distinct starting tiles
-            start_tiles = self._find_starting_tiles(2)
-            # Create Settler
-            settler = Unit(
-                unique_id=self._get_next_unit_id(),
-                owner=first_player_id,
-                unit_type="settler",
-                x=start_tiles[0][0],
-                y=start_tiles[0][1]
-            )
-            self.add_unit(settler)
-            first_player.add_unit(settler.unique_id)
-            # Create Warrior
-            warrior = Unit(
-                unique_id=self._get_next_unit_id(),
-                owner=first_player_id,
-                unit_type="warrior",
-                x=start_tiles[1][0],
-                y=start_tiles[1][1]
-            )
-            self.add_unit(warrior)
-            first_player.add_unit(warrior.unique_id)
+        # Initialize turn_finished for all players
+        self.turn_finished: Dict[str, bool] = {pid: False for pid in self.players}
+        # Set current_player to first player if not provided or invalid
+        if self.players:
+            if current_player in self.players:
+                self.current_player = current_player
+            else:
+                self.current_player = list(self.players.keys())[0]
+        else:
+            self.current_player = None
 
     def add_city(self, city: City) -> None:
         self.cities.append(city)
@@ -131,19 +108,54 @@ class Game:
     def add_player(self, name: str, player: Player) -> None:
         self.players[name] = player
 
-    def next_turn(self) -> None:
+    # --- Turn and round management ---
+    def check_and_auto_end_turn(self):
+        """
+        Automatically end turn for current player if all their units have moved.
+        Returns True if turn was ended, False otherwise.
+        """
+        player_units = [u for u in self.units if u.owner == self.current_player]
+        if player_units and all(u.moves == 0 for u in player_units):
+            return self.end_turn_for_current_player()
+        return False
+
+    def end_turn_for_current_player(self):
+        """
+        Mark the current player's turn as finished. If all players have finished, advance the round.
+        Returns True if round advanced, False otherwise.
+        """
+        if self.current_player in self.turn_finished:
+            self.turn_finished[self.current_player] = True
+        # Only advance round if all players have finished
+        if all(self.turn_finished.values()):
+            self.next_round()
+            return True
+        # Only rotate to next player if this player has not already finished
+        unfinished_players = [pid for pid, finished in self.turn_finished.items() if not finished]
+        if unfinished_players:
+            # Find next unfinished player
+            player_ids = list(self.players.keys())
+            idx = player_ids.index(self.current_player)
+            for offset in range(1, len(player_ids)):
+                next_idx = (idx + offset) % len(player_ids)
+                next_pid = player_ids[next_idx]
+                if not self.turn_finished[next_pid]:
+                    self.current_player = next_pid
+                    break
+        return False
+
+    def next_round(self):
+        """
+        Advance to the next round and reset turn_finished for all players.
+        """
         self.turn += 1
-        # Rotate current player (simple round-robin)
-        if self.players:
-            names = list(self.players.keys())
-            if self.current_player in names:
-                idx = names.index(self.current_player)
-                idx = (idx + 1) % len(names)
-                self.current_player = names[idx]
-            else:
-                self.current_player = names[0]
         # Reset moves for all units
         for unit in self.units:
             unit.reset_moves()
+        # Reset turn_finished for all players
+        self.turn_finished = {pid: False for pid in self.players}
+        # Set current_player to first player
+        if self.players:
+            self.current_player = list(self.players.keys())[0]
 
     # Future: add city management, action history, etc.

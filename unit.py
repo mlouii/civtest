@@ -17,6 +17,8 @@ from typing import Optional, TYPE_CHECKING
 
 from config import MIN_CITY_SPACING
 
+from city import City
+
 if TYPE_CHECKING:
     from map import GameMap, Tile
 
@@ -152,8 +154,9 @@ class Unit:
             if abs(city.x - tx) <= MIN_CITY_SPACING and abs(city.y - ty) <= MIN_CITY_SPACING:
                 state.status_msg = DEFAULT_STATUS_MSGS["proximity_city"]
                 return False
-        from city import City
+        
         new_city = City(owner_id=game.current_player, x=tx, y=ty)
+        new_city.claim_initial_tiles(game.map, game.cities)
         game.add_city(new_city)
         game.remove_unit(self)
         if game.current_player in game.players:

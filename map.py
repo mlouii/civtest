@@ -13,6 +13,7 @@ All functions here are focused on map structure and visualization.
 
 import random
 import pygame
+from gui_config import PLAYER_COLORS, COLOR_TILE_BORDER
 from typing import List, Optional, Tuple, Any
 from config import (
     MAP_WIDTH, MAP_HEIGHT, TILE_SIZE, BASE_WATER_RATIO,
@@ -22,13 +23,44 @@ from config import (
 from config import COLOR_TILE_BORDER
 
 class Tile:
+            
     # Represents a single tile on the map
-    def __init__(self, x: int, y: int, terrain: str) -> None:
+    def __init__(self, x: int, y: int, terrain: str, city_id: Optional[str] = None, player_id: Optional[str] = None) -> None:
         self.x: int = x
         self.y: int = y
         self.terrain: str = terrain
         self.city: Optional[Any] = None
         self.unit: Optional[Any] = None
+        self.city_id: Optional[str] = city_id  # City currently working this tile
+        self.player_id: Optional[str] = player_id  # Owner player (optional)
+
+    def claim(self, city_id: str, player_id: Optional[str] = None) -> None:
+        self.city_id = city_id
+        if player_id is not None:
+            self.player_id = player_id
+
+    def release(self) -> None:
+        self.city_id = None
+        self.player_id = None
+
+    def to_dict(self) -> dict:
+        return {
+            "x": self.x,
+            "y": self.y,
+            "terrain": self.terrain,
+            "city_id": self.city_id,
+            "player_id": self.player_id
+        }
+
+    @classmethod
+    def from_dict(cls: type['Tile'], data: dict) -> 'Tile':
+        return cls(
+            x=data["x"],
+            y=data["y"],
+            terrain=data["terrain"],
+            city_id=data.get("city_id"),
+            player_id=data.get("player_id")
+        )
 
     @property
     def color(self) -> Tuple[int, int, int]:
@@ -39,27 +71,58 @@ class Tile:
         # Placeholder for future tile updates (e.g., city/unit logic)
         pass
 
-    def render(self, surface: Any) -> None:
+    def render_border(self, surface: pygame.Surface, game: Any = None, thickness: int = 3) -> None:
+        if not self.city_id or not game:
+            return
+        city = next((c for c in getattr(game, 'cities', []) if getattr(c, 'city_id', None) == self.city_id), None)
+        if not city or city.owner_id not in PLAYER_COLORS:
+            return
+        color = PLAYER_COLORS[city.owner_id]
+        x0 = self.x * TILE_SIZE
+        y0 = self.y * TILE_SIZE
+        x1 = x0 + TILE_SIZE
+        y1 = y0 + TILE_SIZE
+        # Cardinal directions: (dx, dy, start, end)
+        edges = [
+            (0, -1, (x0, y0), (x1, y0)),    # Top
+            (0, 1, (x0, y1), (x1, y1)),     # Bottom
+            (-1, 0, (x0, y0), (x0, y1)),    # Left
+            (1, 0, (x1, y0), (x1, y1)),     # Right
+        ]
+        for dx, dy, start, end in edges:
+            neighbor = None
+            if hasattr(game, 'map'):
+                neighbor = game.map.get_tile(self.x + dx, self.y + dy)
+            # Only draw border if neighbor is not owned by the same city
+            if not neighbor or neighbor.city_id != self.city_id:
+                pygame.draw.line(surface, color, start, end, thickness)
+
+    def render(self, surface: pygame.Surface, game: Any = None) -> None:
         # Draws the tile on the given surface using pygame
+
         pygame.draw.rect(
             surface,
             self.color,
             (self.x * TILE_SIZE, self.y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
         )
-        pygame.draw.rect(
-            surface,
-            COLOR_TILE_BORDER,
-            (self.x * TILE_SIZE, self.y * TILE_SIZE, TILE_SIZE, TILE_SIZE),
-            1
-        )
+        # Always draw neutral border for all tiles
+        border_rect = (self.x * TILE_SIZE, self.y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+        pygame.draw.rect(surface, COLOR_TILE_BORDER, border_rect, 1)
+        # Overlay player-colored edge borders for owned tiles
+        self.render_border(surface, game, thickness=3)
 
 class GameMap:
     # Generates and manages the entire map grid
     def __init__(
-        self, width: int, height: int,
-        override_water: Optional[float] = None, override_forest: Optional[float] = None,
-        override_hill: Optional[float] = None, override_mountain: Optional[float] = None,
-        override_plains: Optional[float] = None, override_smoothing: Optional[int] = None
+        self,
+        width: int,
+        height: int,
+        override_water: Optional[float] = None,
+        override_forest: Optional[float] = None,
+        override_hill: Optional[float] = None,
+        override_mountain: Optional[float] = None,
+        override_plains: Optional[float] = None,
+        override_smoothing: Optional[int] = None
     ) -> None:
         # Set random seed for reproducibility
         if SEED is not None:
@@ -159,11 +222,11 @@ class GameMap:
             for tile in row:
                 tile.update(game_state)
 
-    def render(self, surface: Any, game: Optional[Any] = None) -> None:
+    def render(self, surface: pygame.Surface, game: Optional[Any] = None) -> None:
         # Renders all tiles to the given surface
         for row in self.tiles:
             for tile in row:
-                tile.render(surface)
+                tile.render(surface, game)
         # Render all units if a Game object is provided
         if game is not None and hasattr(game, "units"):
             for unit in game.units:

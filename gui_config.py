@@ -1,3 +1,6 @@
+# Neutral tile border color for unowned tiles
+COLOR_TILE_BORDER = (180, 180, 180)
+
 # Colorblind-friendly, visually distinct player colors
 PLAYER_COLORS = {
     "P1": (44, 160, 44),   # Green
@@ -33,6 +36,7 @@ COLOR_BUTTON_BG = (180, 180, 220)
 COLOR_BUTTON_BORDER = (80, 80, 100)
 COLOR_BUTTON_TEXT = (30, 30, 60)
 COLOR_INSTRUCTIONS = (30, 30, 60)
+
 
 # UI and button constants
 SIDEBAR_WIDTH = TILE_SIZE * 12

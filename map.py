@@ -1,3 +1,12 @@
+"""
+map.py
+
+This module contains map data, rendering, and tile logic.
+- Defines the game map grid and tile properties
+- Handles map rendering and updates
+- Provides utility functions for tile access and manipulation
+All functions here are focused on map structure and visualization.
+"""
 # map.py
 # This module generates a tile-based map similar to Civilization games.
 # It creates a grid of tiles, assigns terrain types, and clusters biomes.
@@ -7,18 +16,9 @@ import pygame
 from typing import List, Optional, Tuple, Any
 from config import (
     MAP_WIDTH, MAP_HEIGHT, TILE_SIZE, BASE_WATER_RATIO,
-    LAND_SMOOTH_PASSES, FOREST_RATIO, HILL_RATIO, MOUNTAIN_RATIO, PLAINS_RATIO, SEED
+    LAND_SMOOTH_PASSES, FOREST_RATIO, HILL_RATIO, MOUNTAIN_RATIO, PLAINS_RATIO, SEED,
+    TERRAIN_TYPES
 )
-
-# Terrain definitions: color and yields for each type
-TERRAIN_TYPES: dict[str, dict[str, Any]] = {
-    "grassland": {"color": (50, 200, 50), "food": 2, "prod": 1},
-    "plains":    {"color": (200, 200, 100), "food": 1, "prod": 2},
-    "forest":    {"color": (34, 139, 34),   "food": 1, "prod": 2},
-    "hill":      {"color": (139, 69, 19),   "food": 1, "prod": 2},
-    "mountain":  {"color": (110, 110, 110), "food": 0, "prod": 0},
-    "water":     {"color": (65, 105, 225),  "food": 1, "prod": 0},
-}
 
 class Tile:
     # Represents a single tile on the map
@@ -120,8 +120,8 @@ class GameMap:
                         if 0 <= nx < self.width and 0 <= ny < self.height:
                             if grid[ny][nx] == 1:
                                 water_neighbors += 1
-                # If more than 4 neighbors are water, make this tile water
-                if water_neighbors > 4:
+                # If more than 3 neighbors are water, make this tile water
+                if water_neighbors > 3:
                     new_grid[y][x] = 1
                 else:
                     new_grid[y][x] = 0

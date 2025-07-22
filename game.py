@@ -1,11 +1,26 @@
+"""
+game.py
+
+This module contains core game logic, rules, and state transitions.
+- Manages game objects, turns, and player actions
+- Implements game rules and win/loss conditions
+- Provides methods for updating game state
+All functions here are focused on the mechanics and rules of gameplay.
+"""
+
 from typing import List, Dict, Any, Type, Optional
 from map import GameMap
 from unit import Unit
 from player import Player
-# from city import City  # For future expansion
+from city import City
 import json
 
 class Game:
+    def should_end_turn(self) -> bool:
+        # Returns True if the current player is out of moves
+        if self.current_player and self.current_player in self.players:
+            return self.players[self.current_player].is_out_of_moves(self)
+        return False
     def __init__(self, 
                  game_map: Optional[GameMap] = None, 
                  units: Optional[List[Unit]] = None, 
@@ -18,8 +33,8 @@ class Game:
         self.current_player: Optional[str] = current_player
         self.turn: int = turn
         self._next_unit_id: int = 1  # Simple unique ID generator
-        # Future expansion:
-        # self.cities: List[City] = []
+        # City support
+        self.cities: List[City] = []
         # self.action_history: List[Any] = []
 
         # --- Initial unit creation logic ---
@@ -50,6 +65,9 @@ class Game:
             self.add_unit(warrior)
             first_player.add_unit(warrior.unique_id)
 
+    def add_city(self, city: City) -> None:
+        self.cities.append(city)
+
     def _get_next_unit_id(self) -> int:
         uid = self._next_unit_id
         self._next_unit_id += 1
@@ -62,10 +80,13 @@ class Game:
             for y in range(self.map.height):
                 tile = self.map.get_tile(x, y)
                 if tile and self.map.is_tile_passable(x, y):
-                    if not any((x == fx and y == fy) for fx, fy in found):
-                        found.append((x, y))
-                        if len(found) == count:
-                            return found
+                    # Check for at least one passable neighbor
+                    neighbors = self.map.neighbors(x, y)
+                    if any(self.map.is_tile_passable(n.x, n.y) for n in neighbors):
+                        if not any((x == fx and y == fy) for fx, fy in found):
+                            found.append((x, y))
+                            if len(found) == count:
+                                return found
         # Fallback: just use (0,0), (1,0) if not enough found
         while len(found) < count:
             found.append((len(found), 0))
@@ -116,7 +137,8 @@ class Game:
         if self.players:
             names = list(self.players.keys())
             if self.current_player in names:
-                idx = (names.index(self.current_player) + 1) % len(names)
+                idx = names.index(self.current_player)
+                idx = (idx + 1) % len(names)
                 self.current_player = names[idx]
             else:
                 self.current_player = names[0]

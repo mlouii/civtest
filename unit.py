@@ -1,4 +1,13 @@
 """
+unit.py
+
+This module contains unit data, rendering, and actions.
+- Defines unit types, attributes, and movement
+- Handles unit rendering and selection
+- Manages unit actions and interactions
+All functions here are focused on unit logic and visualization.
+"""
+"""
 Unit class for Civ MVP project.
 """
 

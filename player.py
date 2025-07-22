@@ -1,6 +1,21 @@
+"""
+player.py
+
+This module contains player data, actions, and state.
+- Defines player attributes and resources
+- Manages player actions and turn logic
+- Tracks player progress and status
+All functions here are focused on player management and interaction.
+"""
 from typing import List, Dict, Any, Type, Optional, Tuple
 
 class Player:
+    def is_out_of_moves(self, game) -> bool:
+        # Returns True if all units owned by this player are out of moves
+        for unit in game.units:
+            if unit.owner == self.player_id and unit.moves > 0:
+                return False
+        return True
     def __init__(self, player_id: str, is_human: bool = True, color: Optional[Any] = None):
         self.player_id: str = player_id
         self.is_human: bool = is_human

@@ -1,260 +1,204 @@
+"""
+main.py
+
+This module contains the main game loop, event handling, and game state management.
+- Initializes the game and main window
+- Handles all user input and dispatches to modular event handlers
+- Updates game state and triggers rendering
+- Centralizes gameplay state via GameState
+All functions here are focused on orchestrating gameplay, user interaction, and state updates.
+"""
 from typing import Tuple, List, Dict, Optional
+from dataclasses import dataclass, field
+
 import pygame
 from collections import deque
 from game import Game
 from map import GameMap
 from config import MAP_WIDTH, MAP_HEIGHT, TILE_SIZE
 from player import Player
+from movement import compute_reachable
+from gui_config import (
+    COLOR_BG, COLOR_TILE_HIGHLIGHT, COLOR_PATH_LINE, COLOR_PATH_ARROW, COLOR_INVALID_MOVE,
+    COLOR_PANEL_BG, COLOR_PANEL_BORDER, COLOR_PLAYER_TEXT, COLOR_UNIT_TEXT, COLOR_UNIT_TEXT_ALT,
+    COLOR_STATUS_TEXT, COLOR_BUTTON_BG, COLOR_BUTTON_BORDER, COLOR_BUTTON_TEXT, COLOR_INSTRUCTIONS
+)
+from gui import render_game, draw_gui
+from gamestate import GameState
+
+
+## GameState is now imported from gamestate.py
+
+
+# Update game function (previously in main.py)
+def update_game(game: Game) -> None:
+    game.map.update(game)
+
+
 def init_game() -> Game:
     player1 = Player(player_id="P1")
     players: Dict[str, Player] = {"P1": player1}
     return Game(game_map=GameMap(MAP_WIDTH, MAP_HEIGHT), players=players, current_player="P1")
 
-def handle_events(
-    game: Game,
-    selected_unit: Optional[object],
-    status_msg: str,
-    valid_moves: List[Tuple[int, int]],
-    path_map: Dict[Tuple[int, int], List[Tuple[int, int]]],
-    end_turn_rect: pygame.Rect
-) -> Tuple[bool, Optional[object], str, List[Tuple[int, int]], Dict[Tuple[int, int], List[Tuple[int, int]]]]:
-    # ...existing code...
-    running = True
-    mouse_pos = pygame.mouse.get_pos()
-    clicked = False
-    # Ensure path_map is always initialized from the caller
-    # (add path_map as a parameter to the function signature)
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            clicked = True
-            # End Turn button click
-            if end_turn_rect.collidepoint(mouse_pos):
-                for unit in game.units:
-                    if unit.owner == game.current_player:
-                        unit.reset_moves()
-                game.next_turn()
-                for unit in game.units:
-                    unit.selected = False
-                selected_unit = None
-                status_msg = "Turn ended."
-                valid_moves = []
-                path_map = {}  # Reset only when turn ends
-                continue
-            # Map click
-            mx, my = mouse_pos
-            if mx < TILE_SIZE * MAP_WIDTH and my < TILE_SIZE * MAP_HEIGHT:
-                tx = mx // TILE_SIZE
-                ty = my // TILE_SIZE
-                # If no unit selected, try to select one
-                if not selected_unit:
-                    for unit in game.units:
-                        if unit.x == tx and unit.y == ty and unit.owner == game.current_player:
-                            for u in game.units:
-                                u.selected = False
-                            unit.selected = True
-                            selected_unit = unit
-                            status_msg = f"Selected {unit.unit_type} at ({tx},{ty})"
-                            # Compute all reachable tiles and paths using BFS
-                            valid_moves, path_map = compute_reachable(game, unit)
-                            break
-                else:
-                    # Try to move selected unit using pathfinding
-                    if (tx, ty) in valid_moves:
-                        path = path_map.get((tx, ty))
-                        if path is not None:
-                            if len(path)-1 <= selected_unit.moves:
-                                # Move unit along path
-                                for step in path[1:]:
-                                    selected_unit.x, selected_unit.y = step
-                                    selected_unit.moves -= 1
-                                status_msg = f"Moved to ({tx},{ty})"
-                                # Recompute reachable tiles
-                                if selected_unit.moves > 0:
-                                    valid_moves, path_map = compute_reachable(game, selected_unit)
-                                else:
-                                    selected_unit.selected = False
-                                    selected_unit = None
-                                    valid_moves = []
-                                    path_map = {}
-                            else:
-                                status_msg = "Invalid move: not enough movement points."
-                        else:
-                            status_msg = "Invalid move: no path found."
-                    else:
-                        status_msg = "Invalid move: tile not allowed."
-            else:
-                if selected_unit:
-                    selected_unit.selected = False
-                    selected_unit = None
-                    valid_moves = []
-                    path_map = {}  # Reset only when unit is deselected
-                    status_msg = "Unit deselected."
-        elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_e:
-                # End turn via keyboard
-                for unit in game.units:
-                    if unit.owner == game.current_player:
-                        unit.reset_moves()
-                game.next_turn()
-                for unit in game.units:
-                    unit.selected = False
-                selected_unit = None
-                status_msg = "Turn ended."
-                valid_moves = []
-                path_map = {}  # Reset only when turn ends
-    return running, selected_unit, status_msg, valid_moves, path_map
+def handle_quit_event() -> bool:
+    return False
 
-def compute_reachable(
-    game: Game,
-    unit: object
-) -> Tuple[List[Tuple[int, int]], Dict[Tuple[int, int], List[Tuple[int, int]]]]:
-    # ...existing code...
-    start = (unit.x, unit.y)
-    moves = unit.moves
-    visited = set()
-    valid_moves = []
-    path_map = {}
-    queue = deque()
-    queue.append((start, [start], 0))
-    visited.add(start)
-    while queue:
-        (cx, cy), path, dist = queue.popleft()
-        if dist > 0:
-            # Only add to valid_moves if not occupied by another unit (except self)
-            is_occupied = any(u.x == cx and u.y == cy and u != unit for u in game.units)
-            if not is_occupied:
-                valid_moves.append((cx, cy))
-                path_map[(cx, cy)] = path.copy()
-        if dist >= moves:
-            continue
-        for dx, dy in [(-1,0),(1,0),(0,-1),(0,1)]:
-            nx, ny = cx+dx, cy+dy
-            if 0 <= nx < MAP_WIDTH and 0 <= ny < MAP_HEIGHT:
-                tile = game.map.get_tile(nx, ny)
-                # Allow passing through occupied tiles, but not water
-                if tile.terrain != "water" and (nx, ny) not in visited:
-                    visited.add((nx, ny))
-                    queue.append(((nx, ny), path + [(nx, ny)], dist+1))
-    # No fallback needed: valid_moves and path_map are always in sync
-    return valid_moves, path_map
+def handle_right_click(game: Game, state: GameState) -> None:
+    if state.selected_unit:
+        state.selected_unit.selected = False
+        state.selected_unit = None
+        state.valid_moves = []
+        state.path_map = {}
+        state.status_msg = "Unit deselected."
+    if hasattr(game, "cities"):
+        for city in game.cities:
+            if getattr(city, "selected", False):
+                city.selected = False
+                state.status_msg = "City deselected."
 
-def update_game(game: Game) -> None:
-    game.map.update(game)
-
-def render_game(
-    screen: pygame.Surface,
-    game: Game,
-    valid_moves: List[Tuple[int, int]],
-    status_msg: str,
-    end_turn_rect: pygame.Rect
-) -> None:
-    screen.fill((0,0,0))
-    # Draw map and units
-    game.map.render(screen, game)
-    # Highlight valid move tiles
-    # ...existing code...
-    for (mx, my) in valid_moves:
-        rect = pygame.Rect(mx*TILE_SIZE, my*TILE_SIZE, TILE_SIZE, TILE_SIZE)
-        pygame.draw.rect(screen, (0,255,0), rect, 3)
-    # Optional: show path when hovering over a reachable tile
-    mouse_pos = pygame.mouse.get_pos()
+def handle_left_click(game: Game, state: GameState, button_rects: Dict[str, Optional[pygame.Rect]], mouse_pos) -> bool:
+    # Check all buttons
+    for btn_name, btn_rect in button_rects.items():
+        if btn_rect and btn_rect.collidepoint(mouse_pos):
+            handle_button_click(btn_name, game, state)
+            return True
+    # Map click
     mx, my = mouse_pos
-    if valid_moves:
+    if mx < TILE_SIZE * MAP_WIDTH and my < TILE_SIZE * MAP_HEIGHT:
         tx = mx // TILE_SIZE
         ty = my // TILE_SIZE
-        if (tx, ty) in valid_moves:
-            # Draw path from selected unit to hovered tile
-            selected_unit = next((u for u in game.units if getattr(u, 'selected', False)), None)
-            if selected_unit:
-                _, path_map = compute_reachable(game, selected_unit)
-                path = path_map.get((tx, ty), [])
-                for px, py in path:
-                    rect = pygame.Rect(px*TILE_SIZE+TILE_SIZE//4, py*TILE_SIZE+TILE_SIZE//4, TILE_SIZE//2, TILE_SIZE//2)
-                    pygame.draw.rect(screen, (0,200,255), rect, 0)
-    # Draw status for invalid move (red highlight)
-    if status_msg and status_msg.startswith("Invalid move"):
-        mx, my = mouse_pos
-        if mx < TILE_SIZE * MAP_WIDTH and my < TILE_SIZE * MAP_HEIGHT:
-            tx = mx // TILE_SIZE
-            ty = my // TILE_SIZE
-            rect = pygame.Rect(tx*TILE_SIZE, ty*TILE_SIZE, TILE_SIZE, TILE_SIZE)
-            pygame.draw.rect(screen, (255,0,0), rect, 3)
-    # Draw GUI
-    draw_gui(screen, game, status_msg, end_turn_rect)
-def draw_gui(
-    surface: pygame.Surface,
-    game: Game,
-    status_msg: Optional[str] = None,
-    end_turn_rect: Optional[pygame.Rect] = None
-) -> pygame.Rect:
-    # ...existing code...
-    # Sidebar dimensions
-    panel_width = TILE_SIZE * 12
-    # Make sidebar take up full screen height
-    panel_height = surface.get_height()
-    panel_x = TILE_SIZE * MAP_WIDTH
-    panel_y = 0
-    # Draw panel background
-    panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
-    pygame.draw.rect(surface, (230, 230, 240), panel_rect)
-    pygame.draw.rect(surface, (80, 80, 100), panel_rect, 2)
-
-    # Font setup
-    font = pygame.font.SysFont(None, 24)
-    y = panel_y + 20
-    x = panel_x + 20
-
-    # Current player and turn
-    player_str = f"Player: {game.current_player}"
-    turn_str = f"Turn: {game.turn}"
-    surface.blit(font.render(player_str, True, (30,30,60)), (x, y))
-    y += 30
-    surface.blit(font.render(turn_str, True, (30,30,60)), (x, y))
-    y += 40
-
-    # Selected unit info
-    selected_unit = next((u for u in game.units if getattr(u, 'selected', False)), None)
-    if selected_unit:
-        surface.blit(font.render("Selected Unit:", True, (0,0,0)), (x, y))
-        y += 25
-        surface.blit(font.render(f"Type: {selected_unit.unit_type}", True, (0,0,0)), (x, y))
-        y += 25
-        surface.blit(font.render(f"Moves: {selected_unit.moves}", True, (0,0,0)), (x, y))
-        y += 25
-        surface.blit(font.render(f"Owner: {selected_unit.owner}", True, (0,0,0)), (x, y))
-        y += 30
+        if handle_city_selection(game, state, tx, ty):
+            return True
+        if handle_unit_selection(game, state, tx, ty):
+            return True
+        handle_unit_movement(game, state, tx, ty)
     else:
-        surface.blit(font.render("No unit selected", True, (100,0,0)), (x, y))
-        y += 40
+        handle_deselect_outside(game, state)
+    return True
 
-    # Status message
-    if status_msg:
-        surface.blit(font.render(f"Status: {status_msg}", True, (0,80,0)), (x, y))
-        y += 30
+def handle_button_click(btn_name: str, game: Game, state: GameState) -> None:
+    if btn_name == "end_turn":
+        for unit in game.units:
+            if unit.owner == game.current_player:
+                unit.reset_moves()
+        game.next_turn()
+        for unit in game.units:
+            unit.selected = False
+        if hasattr(game, "cities"):
+            for city in game.cities:
+                city.selected = False
+        state.selected_unit = None
+        state.status_msg = "Turn ended."
+        state.valid_moves = []
+        state.path_map = {}  # Reset only when turn ends
+    elif btn_name == "found_city":
+        # Placeholder for found city button logic
+        state.status_msg = "Found City button clicked (implement logic)"
 
-    # End Turn button
-    button_w, button_h = 120, 40
-    button_x = panel_x + 20
-    button_y = panel_height - button_h - 20
-    end_turn_rect = pygame.Rect(button_x, button_y, button_w, button_h)
-    pygame.draw.rect(surface, (180, 180, 220), end_turn_rect)
-    pygame.draw.rect(surface, (80, 80, 100), end_turn_rect, 2)
-    btn_font = pygame.font.SysFont(None, 28)
-    surface.blit(btn_font.render("End Turn", True, (30,30,60)), (button_x+10, button_y+8))
+def handle_city_selection(game: Game, state: GameState, tx: int, ty: int) -> bool:
+    if hasattr(game, "cities"):
+        for city in game.cities:
+            if city.x == tx and city.y == ty:
+                for c in game.cities:
+                    c.selected = False
+                city.selected = True
+                state.selected_unit = None
+                state.valid_moves = []
+                state.path_map = {}
+                state.status_msg = f"Selected city {city.name} at ({tx},{ty})"
+                return True
+    return False
 
-    # Instructions
-    instructions = [
-        "Controls:",
-        "Click unit to select.",
-        "Click tile to move.",
-        "Press E or button to end turn."
-    ]
-    for line in instructions:
-        surface.blit(font.render(line, True, (30,30,60)), (x, y))
-        y += 25
-    return end_turn_rect
+def handle_unit_selection(game: Game, state: GameState, tx: int, ty: int) -> bool:
+    if not state.selected_unit:
+        for unit in game.units:
+            if unit.x == tx and unit.y == ty and unit.owner == game.current_player:
+                for u in game.units:
+                    u.selected = False
+                unit.selected = True
+                state.selected_unit = unit
+                state.status_msg = f"Selected {unit.unit_type} at ({tx},{ty})"
+                state.valid_moves, state.path_map = compute_reachable(game, unit)
+                return True
+    return False
+
+def handle_unit_movement(game: Game, state: GameState, tx: int, ty: int) -> None:
+    if state.selected_unit and (tx, ty) in state.valid_moves:
+        path = state.path_map.get((tx, ty))
+        if path is not None:
+            if len(path)-1 <= state.selected_unit.moves:
+                for step in path[1:]:
+                    state.selected_unit.x, state.selected_unit.y = step
+                    state.selected_unit.moves -= 1
+                state.status_msg = f"Moved to ({tx},{ty})"
+                if state.selected_unit.moves > 0:
+                    state.valid_moves, state.path_map = compute_reachable(game, state.selected_unit)
+                else:
+                    state.selected_unit.selected = False
+                    state.selected_unit = None
+                    state.valid_moves = []
+                    state.path_map = {}
+            else:
+                state.status_msg = "Invalid move: not enough movement points."
+        else:
+            state.status_msg = "Invalid move: no path found."
+    elif state.selected_unit:
+        state.status_msg = "Invalid move: tile not allowed."
+
+def handle_deselect_outside(game: Game, state: GameState) -> None:
+    if state.selected_unit:
+        state.selected_unit.selected = False
+        state.selected_unit = None
+        state.valid_moves = []
+        state.path_map = {}  # Reset only when unit is deselected
+        state.status_msg = "Unit deselected."
+    if hasattr(game, "cities"):
+        for city in game.cities:
+            if getattr(city, "selected", False):
+                city.selected = False
+                state.status_msg = "City deselected."
+
+def handle_keydown_event(event, game: Game, state: GameState) -> None:
+    if event.key == pygame.K_e:
+        for unit in game.units:
+            if unit.owner == game.current_player:
+                unit.reset_moves()
+        game.next_turn()
+        for unit in game.units:
+            unit.selected = False
+        state.selected_unit = None
+        state.status_msg = "Turn ended."
+        state.valid_moves = []
+        state.path_map = {}  # Reset only when turn ends
+
+def handle_auto_end_turn(game: Game, state: GameState, running: bool) -> None:
+    if hasattr(game, 'should_end_turn') and callable(game.should_end_turn):
+        has_units = any(u.owner == game.current_player for u in getattr(game, 'units', []))
+        if has_units and game.should_end_turn():
+            game.next_turn()
+            for unit in game.units:
+                unit.selected = False
+            state.selected_unit = None
+            state.status_msg = "Turn ended (auto)."
+            state.valid_moves = []
+            state.path_map = {}
+
+def handle_events(game: Game, state: GameState, button_rects: Dict[str, Optional[pygame.Rect]]) -> bool:
+    running = True
+    mouse_pos = pygame.mouse.get_pos()
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = handle_quit_event()
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 3:
+                handle_right_click(game, state)
+            elif event.button == 1:
+                running = handle_left_click(game, state, button_rects, mouse_pos)
+        elif event.type == pygame.KEYDOWN:
+            handle_keydown_event(event, game, state)
+    handle_auto_end_turn(game, state, running)
+    return running
+
 
 def main() -> None:
     pygame.init()
@@ -270,20 +214,14 @@ def main() -> None:
     game = init_game()
     clock = pygame.time.Clock()
     running = True
-    selected_unit = None
-    status_msg = ""
-    valid_moves = []
-    path_map = {}
-    end_turn_rect = None
-
-    # Initial draw to get button rect
-    end_turn_rect = draw_gui(screen, game)
+    state = GameState()
+    button_rects: Dict[str, Optional[pygame.Rect]] = draw_gui(screen, game, state.status_msg)
 
     while running:
-        running, selected_unit, status_msg, valid_moves, path_map = handle_events(game, selected_unit, status_msg, valid_moves, path_map, end_turn_rect)
+        running = handle_events(game, state, button_rects)
         update_game(game)
-        end_turn_rect = draw_gui(screen, game)
-        render_game(screen, game, valid_moves, status_msg, end_turn_rect)
+        button_rects: Dict[str, Optional[pygame.Rect]] = draw_gui(screen, game, state.status_msg)
+        render_game(screen, game, state)
         pygame.display.flip()
         clock.tick(30)
 

@@ -1,3 +1,4 @@
+
 - Implemented unit.py:
     - Created Unit class with properties: unique_id, owner, unit_type, x, y, moves, hp, selected.
     - Added methods: update, render, move, can_move, reset_moves, to_dict, __repr__, found_city (settler), attack (warrior).
@@ -51,3 +52,10 @@ Timestamp: July 20, 2025
 - All tests pass for Game, Unit, City, GameMap, and main loop logic.
 
 
+2025-07-20
+- Refactored GUI code into gui.py for modularity and maintainability.
+- All rendering and sidebar logic moved to gui.py (render_game, draw_gui).
+- Centralized all color settings in gui_config.py for easy UI customization.
+- Restored full event handling logic in main.py for interactive gameplay (unit selection, movement, end turn, deselect, quit).
+- Improved movement path visualization: black lines and arrow pointer for clarity.
+- main.py now only contains game logic, event loop, and imports GUI functions.

@@ -1,3 +1,10 @@
+# Colorblind-friendly, visually distinct player colors
+PLAYER_COLORS = {
+    "P1": (44, 160, 44),   # Green
+    "P2": (31, 119, 180),  # Blue
+    "P3": (214, 39, 40),   # Red
+    "P4": (148, 103, 189)  # Purple
+}
 """
 gui_config.py
 
@@ -41,5 +48,6 @@ DEFAULT_STATUS_MSGS = {
     "selected_unit": "Selected {unit_type} at ({x},{y})",
     "invalid_move": "Invalid move: tile not allowed.",
     "invalid_move_points": "Invalid move: not enough movement points.",
-    "invalid_path": "Invalid move: no path found."
+    "invalid_path": "Invalid move: no path found.",
+    "proximity_city": "Cannot found city: too close to another city."
 }

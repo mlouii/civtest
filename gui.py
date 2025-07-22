@@ -109,7 +109,7 @@ def draw_sidebar_panel(surface):
 def draw_player_info(surface, game, font, x, y):
     player_str = f"Player: {game.current_player}"
     turn_str = f"Turn: {game.turn}"
-    color = game.players[game.current_player].color if game.current_player in game.players else (0,0,0)
+    color = game.players[game.current_player].color if game.current_player in game.players else (128,128,128)
     surface.blit(font.render(player_str, True, color), (x, y))
     y += 30
     surface.blit(font.render(turn_str, True, color), (x, y))
@@ -133,13 +133,14 @@ def draw_selected_info(surface, game, font, x, y):
         surface.blit(font.render(f"Location: ({selected_city.x}, {selected_city.y})", True, COLOR_UNIT_TEXT), (x, y))
         y += 30
     elif selected_unit:
-        surface.blit(font.render("Selected Unit:", True, COLOR_UNIT_TEXT), (x, y))
+        color = game.players[selected_unit.owner].color if selected_unit.owner in game.players else (128,128,128)
+        surface.blit(font.render("Selected Unit:", True, color), (x, y))
         y += 25
-        surface.blit(font.render(f"Type: {selected_unit.unit_type}", True, COLOR_UNIT_TEXT), (x, y))
+        surface.blit(font.render(f"Type: {selected_unit.unit_type}", True, color), (x, y))
         y += 25
-        surface.blit(font.render(f"Moves: {selected_unit.moves}", True, COLOR_UNIT_TEXT), (x, y))
+        surface.blit(font.render(f"Moves: {selected_unit.moves}", True, color), (x, y))
         y += 25
-        surface.blit(font.render(f"Owner: {selected_unit.owner}", True, COLOR_UNIT_TEXT), (x, y))
+        surface.blit(font.render(f"Owner: {selected_unit.owner}", True, color), (x, y))
         y += 30
         from movement import can_found_city
         if selected_unit.unit_type == "settler" and can_found_city(game, selected_unit):

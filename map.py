@@ -19,6 +19,7 @@ from config import (
     LAND_SMOOTH_PASSES, FOREST_RATIO, HILL_RATIO, MOUNTAIN_RATIO, PLAINS_RATIO, SEED,
     TERRAIN_TYPES
 )
+from config import COLOR_TILE_BORDER
 
 class Tile:
     # Represents a single tile on the map
@@ -47,7 +48,7 @@ class Tile:
         )
         pygame.draw.rect(
             surface,
-            (50, 50, 50),
+            COLOR_TILE_BORDER,
             (self.x * TILE_SIZE, self.y * TILE_SIZE, TILE_SIZE, TILE_SIZE),
             1
         )

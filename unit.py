@@ -15,6 +15,8 @@ from unit_config import UNIT_TYPES
 from gui_config import DEFAULT_STATUS_MSGS
 from typing import Optional, TYPE_CHECKING
 
+from config import MIN_CITY_SPACING
+
 if TYPE_CHECKING:
     from map import GameMap, Tile
 
@@ -38,17 +40,21 @@ class Unit:
     def render(self, surface: any) -> None:
         import pygame
         from config import TILE_SIZE
+        from gui_config import PLAYER_COLORS
         config = UNIT_TYPES[self.unit_type]
         px = self.x * TILE_SIZE + TILE_SIZE // 2
         py = self.y * TILE_SIZE + TILE_SIZE // 2
+
+        # Get player color, fallback to gray if not found
+        player_color = PLAYER_COLORS.get(self.owner, (128,128,128))
 
         if self.unit_type == "settler":
             # Flagpole
             pole_height = TILE_SIZE // 2
             pole_width = max(2, TILE_SIZE // 16)
-            pole_color = config["color"]
-            flag_color = (255, 255, 0)
-            base_color = (120, 120, 120)
+            pole_color = (120, 120, 120)
+            flag_color = player_color  # Largest piece: flag
+            base_color = player_color
             # Draw pole (vertical line)
             pygame.draw.line(surface, pole_color, (px, py + pole_height//2), (px, py - pole_height//2), pole_width)
             # Draw flag (triangle) at top
@@ -64,7 +70,7 @@ class Unit:
         elif self.unit_type == "warrior":
             # Shield
             shield_radius = TILE_SIZE // 6
-            shield_color = config["color"]
+            shield_color = player_color  # Largest piece: shield
             shield_cx = px
             shield_cy = py
             # Draw two crossed spears behind the shield
@@ -84,7 +90,7 @@ class Unit:
 
         else:
             # Default: draw a circle
-            color = config["color"]
+            color = player_color  # Largest piece: main circle
             radius = config["radius"]
             pygame.draw.circle(surface, color, (px, py), radius)
 
@@ -140,6 +146,12 @@ class Unit:
         if tile_occupied or not game.map.is_tile_passable(tx, ty):
             state.status_msg = DEFAULT_STATUS_MSGS["invalid_move"]
             return False
+        # Check proximity to other cities
+
+        for city in getattr(game, 'cities', []):
+            if abs(city.x - tx) <= MIN_CITY_SPACING and abs(city.y - ty) <= MIN_CITY_SPACING:
+                state.status_msg = DEFAULT_STATUS_MSGS["proximity_city"]
+                return False
         from city import City
         new_city = City(owner_id=game.current_player, x=tx, y=ty)
         game.add_city(new_city)

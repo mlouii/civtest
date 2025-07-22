@@ -54,10 +54,11 @@ def find_passable_tile(game_map: GameMap, preferred_coords: List[Tuple[int, int]
 
 def init_game() -> Game:
     player1 = Player(player_id="P1")
-    player1.color = (30, 30, 60)  # Blue
     player2 = Player(player_id="P2")
-    player2.color = (200, 30, 30)  # Red
     players: Dict[str, Player] = {"P1": player1, "P2": player2}
+    from gui_config import PLAYER_COLORS
+    player1.color = PLAYER_COLORS["P1"]
+    player2.color = PLAYER_COLORS["P2"]
     game_map = GameMap(MAP_WIDTH, MAP_HEIGHT)
     # Find passable starting tiles for each player
     p1_start = find_passable_tile(game_map, [(2, 2)])
@@ -105,28 +106,36 @@ def handle_left_click(game: Game, state: GameState, button_rects: Dict[str, Opti
         handle_deselect_outside(game, state)
     return True
 
+def end_turn_and_update_status(game: Game, state: GameState) -> None:
+    state.selected_unit = None
+    state.valid_moves = []
+    state.path_map = {}
+    for unit in game.units:
+        unit.selected = False
+    if hasattr(game, "cities"):
+        for city in game.cities:
+            city.selected = False
+    round_advanced = game.end_turn_for_current_player()
+    if round_advanced:
+        state.status_msg = "All players ended turn. New round started."
+    else:
+        state.status_msg = f"{game.current_player} ended their turn."
+
 def handle_button_click(btn_name: str, game: Game, state: GameState) -> None:
     if btn_name == BUTTON_END_TURN:
         for unit in game.units:
             if unit.owner == game.current_player:
                 unit.reset_moves()
-        for unit in game.units:
-            unit.selected = False
-        if hasattr(game, "cities"):
-            for city in game.cities:
-                city.selected = False
-        state.selected_unit = None
-        state.valid_moves = []
-        state.path_map = {}  # Reset only when turn ends
-        round_advanced = game.end_turn_for_current_player()
-        if round_advanced:
-            state.status_msg = "All players ended turn. New round started."
-        else:
-            state.status_msg = f"{game.current_player} ended their turn."
+        end_turn_and_update_status(game, state)
     elif btn_name == BUTTON_FOUND_CITY:
         unit = state.selected_unit
         if unit:
-            unit.found_city(game, state)
+            result = unit.found_city(game, state)
+            # If city was founded, and no more units for this player, end turn automatically
+            if result:
+                player_units = [u for u in game.units if u.owner == game.current_player]
+                if not player_units:
+                    end_turn_and_update_status(game, state)
         else:
             state.status_msg = DEFAULT_STATUS_MSGS["invalid_move"]
 
@@ -202,16 +211,7 @@ def handle_keydown_event(event, game: Game, state: GameState) -> None:
         for unit in game.units:
             if unit.owner == game.current_player:
                 unit.reset_moves()
-        for unit in game.units:
-            unit.selected = False
-        state.selected_unit = None
-        state.valid_moves = []
-        state.path_map = {}  # Reset only when turn ends
-        round_advanced = game.end_turn_for_current_player()
-        if round_advanced:
-            state.status_msg = "All players ended turn. New round started."
-        else:
-            state.status_msg = f"{game.current_player} ended their turn."
+        end_turn_and_update_status(game, state)
 
 def handle_auto_end_turn(game: Game, state: GameState, running: bool) -> None:
     if hasattr(game, 'should_end_turn') and callable(game.should_end_turn):

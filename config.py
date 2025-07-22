@@ -1,3 +1,4 @@
+
 """
 config.py
 
@@ -22,10 +23,15 @@ SEED = None               # Random seed for reproducible map generation (set to 
 
 # Terrain definitions: color and yields for each type
 TERRAIN_TYPES: dict[str, dict[str, object]] = {
-    "grassland": {"color": (50, 200, 50), "food": 2, "prod": 1},
-    "plains":    {"color": (200, 200, 100), "food": 1, "prod": 2},
-    "forest":    {"color": (34, 139, 34),   "food": 1, "prod": 2},
-    "hill":      {"color": (139, 69, 19),   "food": 1, "prod": 2},
-    "mountain":  {"color": (110, 110, 110), "food": 0, "prod": 0},
-    "water":     {"color": (65, 105, 225),  "food": 1, "prod": 0},
+    "grassland": {"color": (170, 200, 170), "food": 2, "prod": 1},
+    "plains":    {"color": (220, 220, 180), "food": 1, "prod": 2},
+    "forest":    {"color": (120, 160, 120), "food": 1, "prod": 2},
+    "hill":      {"color": (180, 150, 120), "food": 1, "prod": 2},
+    "mountain":  {"color": (180, 180, 180), "food": 0, "prod": 0},
+    "water":     {"color": (90, 140, 210), "food": 1, "prod": 0},
 }
+
+# Minimum spacing between cities
+MIN_CITY_SPACING = 2
+# Tile border color for grid lines
+COLOR_TILE_BORDER = (180, 180, 180)

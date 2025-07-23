@@ -25,7 +25,7 @@ from gui_config import (
 )
 from gui import render_game, draw_gui
 from gamestate import GameState
-from unit import Unit
+from unit import Warrior, Settler
 
 
 
@@ -64,8 +64,10 @@ def init_game() -> Game:
     p1_start = find_passable_tile(game_map, [(2, 2)])
     p2_start = find_passable_tile(game_map, [(MAP_WIDTH-3, MAP_HEIGHT-3)])
     units = [
-        Unit(unique_id=1, owner="P1", unit_type="settler", x=p1_start[0], y=p1_start[1]),
-        Unit(unique_id=2, owner="P2", unit_type="settler", x=p2_start[0], y=p2_start[1])
+        Settler(unique_id=1, owner="P1", x=p1_start[0], y=p1_start[1]),
+        Settler(unique_id=2, owner="P2", x=p2_start[0], y=p2_start[1]),
+        Warrior(unique_id=3, owner="P1", x=p1_start[0], y=p1_start[1]+1),
+        Warrior(unique_id=4, owner="P2", x=p2_start[0], y=p2_start[1]+1)
     ]
     game = Game(game_map=game_map, players=players, units=units, current_player="P1")
     return game
@@ -166,32 +168,63 @@ def handle_unit_selection(game: Game, state: GameState, tx: int, ty: int) -> boo
                 return True
     return False
 
-def handle_unit_movement(game: Game, state: GameState, tx: int, ty: int) -> None:
-    if state.selected_unit and (tx, ty) in state.valid_moves:
-        path = state.path_map.get((tx, ty))
-        if path is not None:
-            if len(path)-1 <= state.selected_unit.moves:
-                for step in path[1:]:
-                    state.selected_unit.x, state.selected_unit.y = step
-                    state.selected_unit.moves -= 1
-                state.status_msg = f"Moved to ({tx},{ty})"
-                if state.selected_unit.moves > 0:
-                    state.valid_moves, state.path_map = compute_reachable(game, state.selected_unit)
-                else:
-                    state.selected_unit.selected = False
+
+def handle_unit_attack(game: Game, state: GameState, tx: int, ty: int) -> bool:
+    """
+    Handles attacking an enemy unit at (tx, ty) with the currently selected unit.
+    Returns True if an attack was performed, False otherwise.
+    """
+    if not state.selected_unit:
+        return False
+    for unit in game.units:
+        if unit.x == tx and unit.y == ty and unit.owner != game.current_player:
+            # Only allow melee units to use this
+            if hasattr(state.selected_unit, 'target_enemy_unit'):
+                attacked = state.selected_unit.target_enemy_unit(unit, game, game.map, state.path_map)
+                if attacked:
+                    state.status_msg = f"Attacked {unit.unit_type} at ({tx},{ty})"
+                    # Always deselect and end turn for this unit after attack
                     state.selected_unit = None
                     state.valid_moves = []
                     state.path_map = {}
-                    # Auto end turn if all units for current player have moved
                     round_ended = game.check_and_auto_end_turn()
                     if round_ended:
                         state.status_msg = "All units moved. Turn ended automatically."
+                    return True
+                else:
+                    state.status_msg = "Cannot reach and attack this unit this turn."
+                    return False
+    return False
+
+def handle_unit_movement(game: Game, state: GameState, tx: int, ty: int) -> None:
+    if state.selected_unit:
+        # Try to attack first
+        if handle_unit_attack(game, state, tx, ty):
+            return
+        # Otherwise, handle normal movement
+        if (tx, ty) in state.valid_moves:
+            path = state.path_map.get((tx, ty))
+            if path is not None:
+                steps_moved = state.selected_unit.move_along_path(path, game.map)
+                if steps_moved == len(path) - 1:
+                    state.status_msg = f"Moved to ({tx},{ty})"
+                    if state.selected_unit.moves > 0:
+                        state.valid_moves, state.path_map = compute_reachable(game, state.selected_unit)
+                    else:
+                        state.selected_unit.selected = False
+                        state.selected_unit = None
+                        state.valid_moves = []
+                        state.path_map = {}
+                        # Auto end turn if all units for current player have moved
+                        round_ended = game.check_and_auto_end_turn()
+                        if round_ended:
+                            state.status_msg = "All units moved. Turn ended automatically."
+                else:
+                    state.status_msg = "Invalid move: not enough movement points or blocked path."
             else:
-                state.status_msg = "Invalid move: not enough movement points."
+                state.status_msg = "Invalid move: no path found."
         else:
-            state.status_msg = "Invalid move: no path found."
-    elif state.selected_unit:
-        state.status_msg = "Invalid move: tile not allowed."
+            state.status_msg = "Invalid move: tile not allowed."
 
 def handle_deselect_outside(game: Game, state: GameState) -> None:
     if state.selected_unit:

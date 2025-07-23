@@ -8,7 +8,7 @@ This file tests the Unit class logic, including:
 - __repr__ output
 """
 import unittest
-from unit import Unit
+from unit import Warrior, Settler
 from unit_config import UNIT_TYPES
 
 class DummyMap:
@@ -21,7 +21,7 @@ class BlockMap:
 
 class TestUnit(unittest.TestCase):
     def setUp(self):
-        self.unit = Unit(unique_id=1, owner="player1", unit_type="settler", x=2, y=3)
+        self.unit = Settler(unique_id=1, owner="player1", x=2, y=3)
 
     def test_unit_creation(self):
         self.assertEqual(self.unit.unique_id, 1)
@@ -78,8 +78,17 @@ class TestUnit(unittest.TestCase):
         self.assertTrue(self.unit.selected)
 
     def test_unknown_unit_type_raises(self):
+        from unit import Unit
         with self.assertRaises(ValueError):
-            Unit(unique_id=2, owner="player2", unit_type="unknown", x=0, y=0)
+            Unit.from_dict({
+                "unique_id": 2,
+                "owner": "player2",
+                "unit_type": "unknown",
+                "x": 0,
+                "y": 0,
+                "moves": 2,
+                "selected": False
+            })
 
 if __name__ == "__main__":
     unittest.main()

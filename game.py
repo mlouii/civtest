@@ -104,6 +104,7 @@ class Game:
 
     def remove_unit(self, unit: Unit) -> None:
         self.units = [u for u in self.units if u.unique_id != unit.unique_id]
+        self.check_and_auto_end_turn()
 
     def add_player(self, name: str, player: Player) -> None:
         self.players[name] = player
